@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Inpainting</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/fabric@4.6.0/dist/fabric.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- https://fontawesome.com/ -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+<!-- https://getbootstrap.com/docs/5.0/layout/containers/ -->
+<div class="container-fluid mt-5">
+    <div class="text-center mb-4">
+        <h1>Image Inpainting</h1>
+    </div>
+
+
+    <div class="text-center mb-4">
+        <input type="file" id="imageLoader" class="form-control w-25 mx-auto" accept="image/*">
+    </div>
+
+
+    <div class="row">
+        <div class="col-1">
+            <h5>Forms</h5>
+            <div class="d-flex justify-content-center mt-3">
+                <button id="addRectangleButton" class="btn btn-outline-primary me-2">
+                    <i class="fas fa-square"></i>
+                </button>
+                <button id="addCircleButton" class="btn btn-outline-primary me-2">
+                    <i class="fas fa-circle"></i>
+                </button>
+                <button id="addPolygonButton" class="btn btn-outline-primary">
+                    <i class="fas fa-draw-polygon"></i>
+                </button>
+            </div>
+            <!-- https://getbootstrap.com/docs/5.0/forms/form-control/ -->
+            <label for="colorPicker" class="mt-3">Color:</label>
+            <input type="color" id="colorPicker" class="form-control">
+        </div>
+
+
+        <div class="col-4">
+            <h5>Input Image</h5>
+            <canvas id="inputImageCanvas" width="700" height="700" style="border: 3px solid gray;"></canvas>
+            <div class="d-flex justify-content-start mt-3">
+                <button id="zoomInButton" class="btn btn-outline-primary me-2">
+                    <i class="fas fa-search-plus"></i>
+                </button>
+                <button id="zoomOutButton" class="btn btn-outline-primary">
+                    <i class="fas fa-search-minus"></i>
+                </button>
+            </div>
+        </div>
+
+
+        <div class="col-2 d-flex align-items-center justify-content-center">
+            <button id="processButton" class="btn btn-primary">Process</button>
+        </div>
+
+
+        <div class="col-4">
+            <h5>Output Image</h5>
+            <canvas id="outputImageCanvas" width="700" height="700" style="border: 3px solid gray;"></canvas>
+            <div class="d-flex justify-content-start mt-2">
+                <button id="downloadButton" class="btn btn-outline-primary">
+                    <i class="fas fa-download"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const inputImageCanvas = new fabric.Canvas('inputImageCanvas', {selection: false});
+    const outputImageCanvas = new fabric.Canvas('outputImageCanvas', {selection: false});
+
+    // Based on: https://stackoverflow.com/questions/21715812/how-to-upload-an-image-to-a-canvas-with-fabric-js
+    document.getElementById('imageLoader').onchange = function handleImage(e) {
+        var reader = new FileReader();
+        reader.onload = function (event) {
+            var imgObj = new Image();
+            imgObj.src = event.target.result;
+            imgObj.onload = function () {
+                var image = new fabric.Image(imgObj);
+                image.set({
+                    left: 0,
+                    top: 0,
+                    angle: 0,
+                    scaleX: 700 / image.width,
+                    scaleY: 700 /image.height,
+                    evented: false,
+                });
+                // We clear the canvas every time a new image is uploaded!!
+                // We only allow one image (i.e. background image)
+                inputImageCanvas.clear();
+                inputImageCanvas.add(image);
+                inputImageCanvas.sendObjectToBack(image);
+                inputImageCanvas.renderAll();
+            };
+        };
+        reader.readAsDataURL(e.target.files[0]);
+    };
+
+    // https://fabricjs.com/docs/old-docs/fabric-intro-part-3/
+    document.getElementById('addRectangleButton').addEventListener('click', () => {
+        const color = document.getElementById('colorPicker').value;
+        const rect = new fabric.Rect({
+            left: 50,
+            top: 50,
+            width: 100,
+            height: 100,
+            fill: color,
+            selectable: true
+        });
+        inputImageCanvas.add(rect);
+    });
+
+    // https://fabricjs.com/docs/old-docs/fabric-intro-part-3/
+    document.getElementById('addCircleButton').addEventListener('click', () => {
+        const color = document.getElementById('colorPicker').value;
+        const circle = new fabric.Circle({
+            left: 50,
+            top: 50,
+            radius: 50,
+            fill: color,
+            selectable: true
+        });
+        inputImageCanvas.add(circle);
+    });
+
+    // https://fabricjs.com/docs/old-docs/fabric-intro-part-3/
+    document.getElementById('addPolygonButton').addEventListener('click', () => {
+        const color = document.getElementById('colorPicker').value;
+        const triangle = new fabric.Triangle({
+            left: 50,
+            top: 50,
+            radius: 50,
+            fill: color,
+            selectable: true
+        });
+        inputImageCanvas.add(triangle);
+    });
+
+    document.getElementById('processButton').addEventListener('click', () => {
+        // https://stackoverflow.com/questions/41957490/send-canvas-image-data-uint8clampedarray-to-flask-server-via-ajax
+        // https://stackoverflow.com/questions/48562430/fabric-js-sending-image-from-canvas
+        const inputImageData = inputImageCanvas.toDataURL();
+        $.ajax({
+            type: "POST",
+            url: "/processImage",
+            contentType: "application/json",
+            data: JSON.stringify({ inputImageData: inputImageData }),
+            success: function (response) {
+                // https://stackoverflow.com/questions/11457828/load-base64-image-with-fabric-image-fromurl
+                fabric.Image.fromURL(response.base64_image_string, function(img) {
+                    img.set({
+                        left: 0,
+                        top: 0,
+                        evented: false,
+                    });
+                    outputImageCanvas.clear()
+                    outputImageCanvas.add(img);
+                });
+            },
+            error: function (errorMessage) {
+               alert("Something went wrong..." + errorMessage)
+            },
+        })
+    });
+
+    // https://fabricjs.com/docs/old-docs/fabric-intro-part-5/
+    document.getElementById('zoomInButton').addEventListener('click', () => {
+        inputImageCanvas.setZoom(inputImageCanvas.getZoom() * 1.1);
+    });
+
+    // https://fabricjs.com/docs/old-docs/fabric-intro-part-5/
+    document.getElementById('zoomOutButton').addEventListener('click', () => {
+        inputImageCanvas.setZoom(inputImageCanvas.getZoom() / 1.1);
+    });
+
+    document.getElementById('downloadButton').addEventListener('click', () => {
+        // https://stackoverflow.com/questions/8126623/downloading-canvas-element-to-an-image
+        const link = document.createElement('a');
+        link.download = 'output_image.png';
+        link.href = outputImageCanvas.toDataURL();
+        link.click();
+    });
+</script>
+</body>
+</html>
