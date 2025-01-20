@@ -1,9 +1,13 @@
 import io
+
+import numpy
 from PIL import Image # Note: pip install pillow
 from io import BytesIO
 import base64
 import json
 import re
+import numpy as np
+import cv2 as cv2 # Note: pip3 install opencv-python
 
 import flask
 from flask import Flask, render_template, request, Response, jsonify
@@ -41,24 +45,43 @@ def encode_base64_image(image):
     return base64.encodebytes(img_byte_arr.getvalue()).decode('ascii')
 
 
+def convert_to_binary_mask(mask_image):
+    # https://stackoverflow.com/questions/61918194/how-to-make-a-binary-mask-out-of-an-image-with-a-transparent-background
+    cv2_mask_image = cv2.cvtColor(numpy.array(mask_image), cv2.COLOR_RGBA2BGRA)
+
+    # We extract the alpha channel
+    alpha_channel = cv2_mask_image[:, :, 3]
+
+    # Binary mask:
+    #   - if Pixel is transparent -> 0
+    #   - if Pixel is NOT transparent -> 1
+    _, binary_mask = cv2.threshold(alpha_channel, 0, 1, cv2.THRESH_BINARY)
+
+    return binary_mask
+
+def perform_opencv_image_inpainting(input_image, mask_image):
+    # https://docs.opencv.org/3.4/df/d3d/tutorial_py_inpainting.html
+    cv2_input_image = cv2.cvtColor(numpy.array(input_image), cv2.COLOR_RGBA2BGR)
+    binary_mask = convert_to_binary_mask(mask_image)
+
+    inpainted_image = cv2.inpaint(cv2_input_image, binary_mask, 3, cv2.INPAINT_TELEA)
+    inpainted_pil_image = Image.fromarray(cv2.cvtColor(inpainted_image, cv2.COLOR_BGR2RGB))
+
+    return inpainted_pil_image
+
+
 @app.route('/processImage', methods=['POST'])
 def processImage():
     data = request.get_json()
-    image = decode_base64_image_string(data['inputImageData'])
-    mask = decode_base64_image_string(data['maskData'])
+    input_image = decode_base64_image_string(data['inputImageData'])
+    mask_image = decode_base64_image_string(data['maskData'])
 
-    mask.show()
-    # Mit image.convert(...) kann das Bild in JPEG oder PNG umgewandelt werden
-    #image.convert('RGB').save("./images/canvas.jpg", "JPEG")
-    image.save("./images/image.png", "PNG")
-    mask.save("./images/mask.png", "PNG")
+    input_image.save("./images/input_image.png", "PNG")
+    mask_image.save("./images/mask_image.png", "PNG")
 
-    # TODO: "image" in entsprechenden datentypen umwandeln
-    # Output von Modell in einen Base64 String umwandeln und zurückschicken
+    inpainted_image = perform_opencv_image_inpainting(input_image, mask_image)
 
-    # DUMMMMMYYYYYY
-    image = Image.open("./images/image.png", mode='r')
-    base64_image_string = encode_base64_image(image)
+    base64_image_string = encode_base64_image(inpainted_image)
 
     return jsonify({"base64_image_string": f"data:image/png;base64,{base64_image_string}"})
 

@@ -37,9 +37,20 @@
                     <i class="fas fa-draw-polygon"></i>
                 </button>
             </div>
-            <!-- https://getbootstrap.com/docs/5.0/forms/form-control/ -->
-            <label for="colorPicker" class="mt-3">Color:</label>
+
+            <div class="mt-3">
+                <h5>Free Drawing</h5>
+                <button id="freeDrawButton" class="btn btn-outline-primary w-100">Enable Drawing</button>
+                <label for="lineWidthPicker" class="mt-2">Line Width:</label>
+                <input type="range" id="lineWidthPicker" class="form-range" min="1" max="35" value="5">
+            </div>
+
+            <h5>Color</h5>
             <input type="color" id="colorPicker" class="form-control">
+
+            <div class="mt-3">
+                <button id="clearShapesButton" class="btn btn-outline-danger w-100 mt-2">Clear Canvas</button>
+            </div>
         </div>
 
 
@@ -65,7 +76,7 @@
         <div class="col-4">
             <h5>Output Image</h5>
             <canvas id="outputImageCanvas" width="700" height="700" style="border: 3px solid gray;"></canvas>
-            <div class="d-flex justify-content-start mt-2">
+            <div class="d-flex justify-content-start mt-3">
                 <button id="downloadButton" class="btn btn-outline-primary">
                     <i class="fas fa-download"></i>
                 </button>
@@ -77,6 +88,7 @@
 <script>
     const inputImageCanvas = new fabric.Canvas('inputImageCanvas', {selection: false});
     const outputImageCanvas = new fabric.Canvas('outputImageCanvas', {selection: false});
+    let isDrawingMode = false;
 
     // Based on: https://stackoverflow.com/questions/21715812/how-to-upload-an-image-to-a-canvas-with-fabric-js
     document.getElementById('imageLoader').onchange = function handleImage(e) {
@@ -91,21 +103,78 @@
                     top: 0,
                     angle: 0,
                     scaleX: 700 / image.width,
-                    scaleY: 700 /image.height,
+                    scaleY: 700 / image.height,
                     evented: false,
                 });
                 // We clear the canvas every time a new image is uploaded!!
                 // We only allow one image (i.e. background image)
                 inputImageCanvas.clear();
                 inputImageCanvas.add(image);
+                inputImageCanvas.sendToBack(image);
                 inputImageCanvas.renderAll();
             };
         };
         reader.readAsDataURL(e.target.files[0]);
     };
 
+    document.getElementById('freeDrawButton').addEventListener('click', () => {
+        // We check whether an image was set
+        let inputImage = null;
+        inputImageCanvas.getObjects().forEach(obj => {
+            if (obj.type === 'image') {
+                inputImage = obj;
+            }
+        });
+
+        if (!inputImage) {
+            alert("Upload an image before painting!!!");
+            return;
+        }
+
+        // https://fabricjs.com/demos/free-drawing/
+        isDrawingMode = !isDrawingMode;
+        inputImageCanvas.isDrawingMode = isDrawingMode;
+
+        const button = document.getElementById('freeDrawButton');
+        button.textContent = isDrawingMode ? "Disable Drawing" : "Enable Drawing";
+
+        const color = document.getElementById('colorPicker').value;
+        const lineWidth = document.getElementById('lineWidthPicker').value;
+
+        inputImageCanvas.freeDrawingBrush.color = color;
+        inputImageCanvas.freeDrawingBrush.width = parseInt(lineWidth, 10);
+        inputImageCanvas.renderAll();
+    });
+
+    document.getElementById('colorPicker').addEventListener('change', () => {
+        if (isDrawingMode) {
+            const color = document.getElementById('colorPicker').value;
+            inputImageCanvas.freeDrawingBrush.color = color;
+        }
+    });
+
+    document.getElementById('lineWidthPicker').addEventListener('input', () => {
+        if (isDrawingMode) {
+            const lineWidth = document.getElementById('lineWidthPicker').value;
+            inputImageCanvas.freeDrawingBrush.width = parseInt(lineWidth, 10);
+        }
+    });
+
     // https://fabricjs.com/docs/old-docs/fabric-intro-part-3/
     document.getElementById('addRectangleButton').addEventListener('click', () => {
+        // We check whether an image was set
+        let inputImage = null;
+        inputImageCanvas.getObjects().forEach(obj => {
+            if (obj.type === 'image') {
+                inputImage = obj;
+            }
+        });
+
+        if (!inputImage) {
+            alert("Upload an image before painting!!!");
+            return;
+        }
+
         const color = document.getElementById('colorPicker').value;
         const rect = new fabric.Rect({
             left: 50,
@@ -116,10 +185,24 @@
             selectable: true
         });
         inputImageCanvas.add(rect);
+        inputImageCanvas.renderAll();
     });
 
     // https://fabricjs.com/docs/old-docs/fabric-intro-part-3/
     document.getElementById('addCircleButton').addEventListener('click', () => {
+        // We check whether an image was set
+        let inputImage = null;
+        inputImageCanvas.getObjects().forEach(obj => {
+            if (obj.type === 'image') {
+                inputImage = obj;
+            }
+        });
+
+        if (!inputImage) {
+            alert("Upload an image before painting!!!");
+            return;
+        }
+
         const color = document.getElementById('colorPicker').value;
         const circle = new fabric.Circle({
             left: 50,
@@ -129,10 +212,24 @@
             selectable: true
         });
         inputImageCanvas.add(circle);
+        inputImageCanvas.renderAll();
     });
 
     // https://fabricjs.com/docs/old-docs/fabric-intro-part-3/
     document.getElementById('addPolygonButton').addEventListener('click', () => {
+        // We check whether an image was set
+        let inputImage = null;
+        inputImageCanvas.getObjects().forEach(obj => {
+            if (obj.type === 'image') {
+                inputImage = obj;
+            }
+        });
+
+        if (!inputImage) {
+            alert("Upload an image before painting!!!");
+            return;
+        }
+
         const color = document.getElementById('colorPicker').value;
         const triangle = new fabric.Triangle({
             left: 50,
@@ -142,25 +239,31 @@
             selectable: true
         });
         inputImageCanvas.add(triangle);
+        inputImageCanvas.renderAll();
+    });
+
+    document.getElementById('clearShapesButton').addEventListener('click', () => {
+        const objects = inputImageCanvas.getObjects();
+
+        objects.forEach(obj => {
+            // We remove all shapes except the image
+            if (obj.type !== 'image') {
+                inputImageCanvas.remove(obj);
+            }
+        });
+
+        inputImageCanvas.renderAll();
     });
 
     document.getElementById('processButton').addEventListener('click', () => {
         // https://stackoverflow.com/questions/41957490/send-canvas-image-data-uint8clampedarray-to-flask-server-via-ajax
         // https://stackoverflow.com/questions/48562430/fabric-js-sending-image-from-canvas
 
-        // We retrieve all canvas-objects (i.e. image, circles,...)
-        // https://stackoverflow.com/questions/20593163/select-all-the-objects-on-canvas-using-fabric-js
-        const objects = inputImageCanvas.getObjects();
+        // We check whether an image was set
         let inputImage = null;
-        const shapes = [];
-
-        // Separate background image and shapes
-        objects.forEach(obj => {
+        inputImageCanvas.getObjects().forEach(obj => {
             if (obj.type === 'image') {
                 inputImage = obj;
-            } else if(obj.type == 'rect' || obj.type =='circle' || obj.type =='triangle') {
-                // Circle, Rectangle, Triangle
-                shapes.push(obj);
             }
         });
 
@@ -169,21 +272,42 @@
             return;
         }
 
-        // We create a mask-canvas
-        const maskCanvas = new fabric.Canvas(null, {
-            width: inputImageCanvas.width,
-            height: inputImageCanvas.height
+        // We create a mask-canvas (i.e. canvas only containing forms and drawings)
+        // https://stackoverflow.com/questions/33716349/clone-canvas-with-fabric-js-and-continue-editing
+        let maskCanvas = new fabric.StaticCanvas(null);
+        maskCanvas.width = inputImageCanvas.width;
+        maskCanvas.height = inputImageCanvas.height;
+        maskCanvas.scaleX = inputImageCanvas.scaleX;
+        maskCanvas.scaleY = inputImageCanvas.scaleY;
+        maskCanvas.setZoom(inputImageCanvas.getZoom());
+
+        inputImageCanvas.getObjects().forEach(obj => {
+            if (obj.type !== 'image') {
+                const clonedShape = fabric.util.object.clone(obj);
+                maskCanvas.add(clonedShape);
+            }
         });
         maskCanvas.backgroundColor = null;
         maskCanvas.backgroundImage = null;
-        // https://stackoverflow.com/questions/71092541/fabric-js-cannot-have-the-background-of-a-canvas-transparent
-        shapes.forEach(shape => {
-            // https://stackoverflow.com/questions/21672011/cloning-objects-in-fabric-js
-            const clonedShape = fabric.util.object.clone(shape);
-            maskCanvas.add(clonedShape);
-        });
+        maskCanvas.renderAll();
 
-        const inputImageData = inputImage.toDataURL();
+        // We remove the forms and drawings from the input-canvas (we make a copy)
+        let inputImageCanvasWithoutDrawingsAndForms = new fabric.StaticCanvas(null);
+        inputImageCanvasWithoutDrawingsAndForms.width = inputImageCanvas.width;
+        inputImageCanvasWithoutDrawingsAndForms.height = inputImageCanvas.height;
+        inputImageCanvasWithoutDrawingsAndForms.scaleX = inputImageCanvas.scaleX;
+        inputImageCanvasWithoutDrawingsAndForms.scaleY = inputImageCanvas.scaleY;
+        inputImageCanvasWithoutDrawingsAndForms.setZoom(inputImageCanvas.getZoom());
+
+        inputImageCanvas.getObjects().forEach(obj => {
+            if (obj.type === 'image') {
+                const clonedShape = fabric.util.object.clone(obj);
+                inputImageCanvasWithoutDrawingsAndForms.add(clonedShape);
+            }
+        });
+        inputImageCanvasWithoutDrawingsAndForms.renderAll();
+
+        const inputImageData = inputImageCanvasWithoutDrawingsAndForms.toDataURL();
         const maskData = maskCanvas.toDataURL("image/png", 1.0);
 
         $.ajax({
@@ -196,7 +320,7 @@
             }),
             success: function (response) {
                 // https://stackoverflow.com/questions/11457828/load-base64-image-with-fabric-image-fromurl
-                fabric.Image.fromURL(response.base64_image_string, function(img) {
+                fabric.Image.fromURL(response.base64_image_string, function (img) {
                     img.set({
                         left: 0,
                         top: 0,
@@ -207,9 +331,17 @@
                 });
             },
             error: function (errorMessage) {
-               alert("Something went wrong..." + errorMessage)
+                alert("Something went wrong..." + errorMessage)
             },
         })
+        // We clear the canvas except the input image (of the inputImageCanvas)
+        inputImageCanvas.getObjects().forEach(obj => {
+            if (obj.type !== 'image') {
+                inputImageCanvas.remove(obj);
+            }
+        });
+        inputImageCanvas.renderAll();
+
     });
 
     // https://fabricjs.com/docs/old-docs/fabric-intro-part-5/
