@@ -98,7 +98,6 @@
                 // We only allow one image (i.e. background image)
                 inputImageCanvas.clear();
                 inputImageCanvas.add(image);
-                inputImageCanvas.sendObjectToBack(image);
                 inputImageCanvas.renderAll();
             };
         };
@@ -148,12 +147,53 @@
     document.getElementById('processButton').addEventListener('click', () => {
         // https://stackoverflow.com/questions/41957490/send-canvas-image-data-uint8clampedarray-to-flask-server-via-ajax
         // https://stackoverflow.com/questions/48562430/fabric-js-sending-image-from-canvas
-        const inputImageData = inputImageCanvas.toDataURL();
+
+        // We retrieve all canvas-objects (i.e. image, circles,...)
+        // https://stackoverflow.com/questions/20593163/select-all-the-objects-on-canvas-using-fabric-js
+        const objects = inputImageCanvas.getObjects();
+        let inputImage = null;
+        const shapes = [];
+
+        // Separate background image and shapes
+        objects.forEach(obj => {
+            if (obj.type === 'image') {
+                inputImage = obj;
+            } else if(obj.type == 'rect' || obj.type =='circle' || obj.type =='triangle') {
+                // Circle, Rectangle, Triangle
+                shapes.push(obj);
+            }
+        });
+
+        if (!inputImage) {
+            alert("Upload an image before processing!!!");
+            return;
+        }
+
+        // We create a mask-canvas
+        const maskCanvas = new fabric.Canvas(null, {
+            width: inputImageCanvas.width,
+            height: inputImageCanvas.height
+        });
+        maskCanvas.backgroundColor = null;
+        maskCanvas.backgroundImage = null;
+        // https://stackoverflow.com/questions/71092541/fabric-js-cannot-have-the-background-of-a-canvas-transparent
+        shapes.forEach(shape => {
+            // https://stackoverflow.com/questions/21672011/cloning-objects-in-fabric-js
+            const clonedShape = fabric.util.object.clone(shape);
+            maskCanvas.add(clonedShape);
+        });
+
+        const inputImageData = inputImage.toDataURL();
+        const maskData = maskCanvas.toDataURL("image/png", 1.0);
+
         $.ajax({
             type: "POST",
             url: "/processImage",
             contentType: "application/json",
-            data: JSON.stringify({ inputImageData: inputImageData }),
+            data: JSON.stringify({
+                inputImageData: inputImageData,
+                maskData: maskData
+            }),
             success: function (response) {
                 // https://stackoverflow.com/questions/11457828/load-base64-image-with-fabric-image-fromurl
                 fabric.Image.fromURL(response.base64_image_string, function(img) {

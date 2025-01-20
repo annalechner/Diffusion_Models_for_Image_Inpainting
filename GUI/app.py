@@ -30,7 +30,7 @@ def decode_base64_image_string(base_image_string):
     # https://stackoverflow.com/questions/41957490/send-canvas-image-data-uint8clampedarray-to-flask-server-via-ajax
     image_data = re.sub('^data:image/.+;base64,', '', base_image_string)
 
-    return Image.open(BytesIO(base64.b64decode(image_data)))
+    return Image.open(BytesIO(base64.b64decode(image_data))).convert("RGBA")
 
 
 def encode_base64_image(image):
@@ -45,16 +45,19 @@ def encode_base64_image(image):
 def processImage():
     data = request.get_json()
     image = decode_base64_image_string(data['inputImageData'])
-    # image.show()
+    mask = decode_base64_image_string(data['maskData'])
+
+    mask.show()
     # Mit image.convert(...) kann das Bild in JPEG oder PNG umgewandelt werden
     #image.convert('RGB').save("./images/canvas.jpg", "JPEG")
-    image.convert('RGB').save("./images/canvas.png", "PNG")
+    image.save("./images/image.png", "PNG")
+    mask.save("./images/mask.png", "PNG")
 
     # TODO: "image" in entsprechenden datentypen umwandeln
     # Output von Modell in einen Base64 String umwandeln und zurückschicken
 
     # DUMMMMMYYYYYY
-    image = Image.open("./images/canvas.png", mode='r')
+    image = Image.open("./images/image.png", mode='r')
     base64_image_string = encode_base64_image(image)
 
     return jsonify({"base64_image_string": f"data:image/png;base64,{base64_image_string}"})
