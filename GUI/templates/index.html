@@ -325,8 +325,12 @@
                         left: 0,
                         top: 0,
                         evented: false,
+                        scaleX: 700 / img.width,
+                        scaleY: 700 / img.height
                     });
-                    outputImageCanvas.clear()
+                    outputImageCanvas.width = 700;
+                    outputImageCanvas.height = 700;
+                    outputImageCanvas.clear();
                     outputImageCanvas.add(img);
                 });
             },
