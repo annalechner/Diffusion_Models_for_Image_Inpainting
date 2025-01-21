@@ -86,6 +86,7 @@
 </div>
 
 <script>
+    fabric.Object.prototype.objectCaching = false;
     const inputImageCanvas = new fabric.Canvas('inputImageCanvas', {selection: false});
     const outputImageCanvas = new fabric.Canvas('outputImageCanvas', {selection: false});
     let isDrawingMode = false;
@@ -337,12 +338,6 @@
             error: function (errorMessage) {
                 alert("Something went wrong..." + errorMessage)
             },
-        })
-        // We clear the canvas except the input image (of the inputImageCanvas)
-        inputImageCanvas.getObjects().forEach(obj => {
-            if (obj.type !== 'image') {
-                inputImageCanvas.remove(obj);
-            }
         });
         inputImageCanvas.renderAll();
 
