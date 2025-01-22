@@ -1,6 +1,5 @@
 import io
 import os
-
 import numpy
 import torch
 from PIL import Image # Note: pip install pillow
@@ -10,14 +9,14 @@ import json
 import re
 import numpy as np
 import cv2 as cv2 # Note: pip3 install opencv-python
-import image_inpainting_model
+import image_inpainting_model_our
 import torchvision.transforms as transforms
 from flask import Flask, render_template, request, jsonify
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 4 * 1024 * 1024 * 1024
 
-checkpoint_path = "./ddpm_checkpoint.save"
+checkpoint_path = "./swiss_ddpm_final.save"
 model = None
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Device =", device)
@@ -26,8 +25,8 @@ USE_OPENCV_INPAINTING = False
 
 def load_model():
     global model
-    schedule = image_inpainting_model.Schedule(T=100, beta_1=0.0001, beta_T=0.02)
-    model = image_inpainting_model.DDPM(schedule)
+    schedule = image_inpainting_model_our.Schedule(T=10, beta_1=0.0001, beta_T=0.02)
+    model = image_inpainting_model_our.DDPM(schedule)
 
     if not os.path.exists(checkpoint_path):
         raise FileNotFoundError(f"Checkpoint file not found: {checkpoint_path}")
@@ -142,7 +141,7 @@ def perform_ddpm_inpainting(input_image_pil, mask_image_pil):
     mask_tensor = 1 - mask_tensor
 
     # Inpainting Results
-    result_tensor = model.inpaint(input_tensor, mask_tensor, resample_steps=10)
+    result_tensor = model.inpaint(input_tensor, mask_tensor, resample_steps=20)
     print("Fertig mit inpainting")
     result_pil_image = convert_model_output_tensor_to_pil_image(result_tensor)
 
@@ -155,14 +154,18 @@ def processImage():
     input_image = decode_base64_image_string(data['inputImageData'])
     mask_image = decode_base64_image_string(data['maskData'])
 
-    input_image.save("./images/input_image.png", "PNG")
-    mask_image.save("./images/mask_image.png", "PNG")
+    # For debugging purposes
+    os.makedirs("./images", exist_ok=True)
+    input_image.save("./images/image_01.png", "PNG")
+    mask_image.save("./images/mask_01.png", "PNG")
 
+    print("Started Inpainting!")
     if USE_OPENCV_INPAINTING:
+        # Was used to test the GUI
         inpainted_image = perform_opencv_image_inpainting(input_image, mask_image)
     else:
         inpainted_image = perform_ddpm_inpainting(input_image, mask_image)
-        print("Fertig!")
+    print("Finished Inpainting!")
 
     base64_image_string = encode_base64_image(inpainted_image)
 
@@ -171,4 +174,5 @@ def processImage():
 
 if __name__ == '__main__':
     load_model()
-    app.run()
+    # Change to a port, which is not in use!
+    app.run(port=1234)
