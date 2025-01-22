@@ -2,21 +2,33 @@ import io
 import os
 import numpy
 import torch
-from PIL import Image # Note: pip install pillow
+from PIL import Image
 from io import BytesIO
 import base64
-import json
 import re
 import numpy as np
-import cv2 as cv2 # Note: pip3 install opencv-python
-import image_inpainting_model_our
-import torchvision.transforms as transforms
+import cv2 as cv2
 from flask import Flask, render_template, request, jsonify
+import torchvision.transforms as transforms
+
+# Change to a port, which is not in use!
+PORT = 5002
+
+# For our custom U-Net Architecture set to True
+# For U-Net Architecture of KU set to False
+USE_CUSTOM_UNET_ARCH = True
+
+if USE_CUSTOM_UNET_ARCH:
+    import image_inpainting_model_custom_unet as iim
+    checkpoint_path = "./ddpm_custom_unet.save"
+else:
+    import image_inpainting_model_unet_ku as iim
+    checkpoint_path = "./ddpm_unet_ku.save"
+
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 4 * 1024 * 1024 * 1024
 
-checkpoint_path = "./swiss_ddpm_final.save"
 model = None
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Device =", device)
@@ -25,8 +37,8 @@ USE_OPENCV_INPAINTING = False
 
 def load_model():
     global model
-    schedule = image_inpainting_model_our.Schedule(T=10, beta_1=0.0001, beta_T=0.02)
-    model = image_inpainting_model_our.DDPM(schedule)
+    schedule = iim.Schedule(T=10, beta_1=0.0001, beta_T=0.02)
+    model = iim.DDPM(schedule)
 
     if not os.path.exists(checkpoint_path):
         raise FileNotFoundError(f"Checkpoint file not found: {checkpoint_path}")
@@ -174,5 +186,4 @@ def processImage():
 
 if __name__ == '__main__':
     load_model()
-    # Change to a port, which is not in use!
-    app.run(port=1234)
+    app.run(port=PORT)
